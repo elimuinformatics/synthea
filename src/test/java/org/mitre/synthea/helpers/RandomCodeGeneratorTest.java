@@ -2,15 +2,12 @@ package org.mitre.synthea.helpers;
 
 import static org.mitre.synthea.TestHelper.SNOMED_URI;
 import static org.mitre.synthea.TestHelper.fhirResponse;
-import static org.mitre.synthea.TestHelper.getR4FhirContext;
 import static org.mitre.synthea.TestHelper.getTxRecordingSource;
 import static org.mitre.synthea.TestHelper.isHttpRecordingEnabled;
 import static org.mitre.synthea.TestHelper.wiremockOptions;
 
-import com.github.tomakehurst.wiremock.client.WireMock;
-import com.github.tomakehurst.wiremock.junit.WireMockRule;
-import com.github.tomakehurst.wiremock.stubbing.StubMapping;
 import java.util.UUID;
+
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
@@ -19,11 +16,16 @@ import org.junit.Test;
 import org.junit.rules.ExpectedException;
 import org.mitre.synthea.world.concepts.HealthRecord.Code;
 
+import com.github.tomakehurst.wiremock.client.WireMock;
+import com.github.tomakehurst.wiremock.junit.WireMockRule;
+import com.github.tomakehurst.wiremock.stubbing.StubMapping;
+
 public class RandomCodeGeneratorTest {
 
   private static final int SEED = 1234;
   private static final String EXPAND_STUB_ID = "1b134e58-aabf-4b5c-baf7-cce2c4f593c7";
   private static final String VALUE_SET_URI = SNOMED_URI + "?fhir_vs=ecl/<<131148009";
+  private static final String NOEXPANSION_NOCONTAINS_URI = SNOMED_URI + "?fhir_vs=ecl/<<131148009&filter=biology";
 
   @Rule
   public WireMockRule mockTerminologyService = new WireMockRule(wiremockOptions()
@@ -38,9 +40,6 @@ public class RandomCodeGeneratorTest {
    */
   @Before
   public void setUp() {
-    TerminologyClient terminologyClient = getR4FhirContext()
-        .newRestfulClient(TerminologyClient.class, mockTerminologyService.baseUrl() + "/fhir");
-    RandomCodeGenerator.initialize(terminologyClient);
     if (isHttpRecordingEnabled()) {
       WireMock.startRecording(getTxRecordingSource());
     }
@@ -56,22 +55,12 @@ public class RandomCodeGeneratorTest {
   }
 
   @Test
-  public void throwsWhenNotConfigured() {
-    thrown.expect(RuntimeException.class);
-    thrown.expectMessage(
-        "Unable to generate code from ValueSet URI: terminology service not configured");
-    
-    RandomCodeGenerator.reset();
-    RandomCodeGenerator.getCode(VALUE_SET_URI, SEED);
-  }
-
-  @Test
   public void throwsWhenNoExpansion() {
     thrown.expect(RuntimeException.class);
     thrown.expectMessage("ValueSet expansion does not contain any codes");
     editStubBody("noExpansion.ValueSet.json");
 
-    RandomCodeGenerator.getCode(VALUE_SET_URI, SEED);
+    RandomCodeGenerator.getCode(NOEXPANSION_NOCONTAINS_URI, SEED);
   }
 
   @Test
@@ -89,7 +78,7 @@ public class RandomCodeGeneratorTest {
     thrown.expectMessage("ValueSet expansion does not contain any codes");
     editStubBody("noContains.ValueSet.json");
 
-    RandomCodeGenerator.getCode(VALUE_SET_URI, SEED);
+    RandomCodeGenerator.getCode(NOEXPANSION_NOCONTAINS_URI, SEED);
   }
 
   @Test

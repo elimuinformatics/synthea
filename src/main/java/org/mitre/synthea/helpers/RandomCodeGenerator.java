@@ -1,191 +1,193 @@
 package org.mitre.synthea.helpers;
 
-import ca.uhn.fhir.context.FhirContext;
-import com.google.common.cache.CacheBuilder;
-import com.google.common.cache.CacheLoader;
-import com.google.common.cache.LoadingCache;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Random;
-import java.util.concurrent.ExecutionException;
+
 import javax.annotation.Nonnull;
+
+import org.apache.commons.lang3.StringUtils;
 import org.hl7.fhir.r4.model.IntegerType;
 import org.hl7.fhir.r4.model.UriType;
 import org.hl7.fhir.r4.model.ValueSet;
-import org.hl7.fhir.r4.model.ValueSet.ValueSetExpansionComponent;
-import org.hl7.fhir.r4.model.ValueSet.ValueSetExpansionContainsComponent;
 import org.mitre.synthea.world.concepts.HealthRecord.Code;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.client.RestTemplate;
+
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.CacheLoader;
+import com.google.common.cache.LoadingCache;
 
 /**
- * Generates random codes based upon ValueSet URIs, with the help of a FHIR terminology service
- * API.
+ * Generates random codes based upon ValueSet URIs, with the help of a FHIR
+ * terminology service API.
  *
- * <p>The URL for the terminology service is configured using the
+ * <p>
+ * The URL for the terminology service is configured using the
  * <code>generate.terminology_service_url</code> property.
  */
 public abstract class RandomCodeGenerator {
+	
+	public static final int EXPAND_PAGE_SIZE = 1000;
+    private static final int RESPONSE_CACHE_SIZE = 100;
+    
+    private static TerminologyClient terminologyClient = null;
+	private static LoadingCache<ExpandInput, ValueSet> responseCache;
+	private static final String EXPAND_BASE_URL = Config.get("generate.terminology_service_url")
+			+ "/ValueSet/$expand?url=";
+	private static final Logger logger = LoggerFactory.getLogger(RandomCodeGenerator.class);
+	private static Map<String, String> isExpandApiInvoked = new HashMap<>();
+	private static Map<String, List<Object>> codeListCache = new HashMap<>();
+	
 
-  public static final int EXPAND_PAGE_SIZE = 1000;
-  private static final int RESPONSE_CACHE_SIZE = 100;
+	/**
+	 * Initialize the RandomCodeGenerator with the supplied TerminologyClient.
+	 *
+	 * @param terminologyClient
+	 *            the TerminologyClient to be used
+	 */
+	public static void initialize(TerminologyClient terminologyClient) {
+		RandomCodeGenerator.terminologyClient = terminologyClient;
+		initializeCache();
+	}
 
-  private static final Logger logger = LoggerFactory.getLogger(RandomCodeGenerator.class);
-  private static TerminologyClient terminologyClient = null;
-  private static LoadingCache<ExpandInput, ValueSet> responseCache;
+	private static void initializeCache() {
+		responseCache = CacheBuilder.newBuilder().maximumSize(RESPONSE_CACHE_SIZE)
+				.build(new CacheLoader<ExpandInput, ValueSet>() {
+					@Override
+					public ValueSet load(@Nonnull ExpandInput key) {
+						return terminologyClient.expand(new UriType(key.getValueSetUri()),
+								new IntegerType(EXPAND_PAGE_SIZE), new IntegerType(key.getOffset()));
+					}
+				});
+	}
 
-  static {
-    String terminologyServiceUrl = Config.get("generate.terminology_service_url");
-    initialize(terminologyServiceUrl);
-  }
+	/**
+	 * Gets a random code from the expansion of a ValueSet.
+	 *
+	 * @param valueSetUri
+	 *            the URI of the ValueSet
+	 * @param seed
+	 *            a random seed to ensure reproducibility of this result
+	 * @return the randomly selected Code
+	 */
+	@SuppressWarnings({ "unchecked", "static-access" })
+	public static Code getCode(String valueSetUri, long seed) {
 
-  /**
-   * Initialize the RandomCodeGenerator with the supplied terminology service URL.
-   *
-   * @param terminologyServiceUrl the URL of the FHIR terminology service to be used
-   */
-  public static void initialize(String terminologyServiceUrl) {
-    if (terminologyServiceUrl != null && !terminologyServiceUrl.isEmpty()) {
-      terminologyClient = FhirContext.forR4()
-          .newRestfulClient(TerminologyClient.class, terminologyServiceUrl);
-      initializeCache();
-    }
-  }
+		if (!codeListCache.containsKey(valueSetUri)  && StringUtils.isEmpty(isExpandApiInvoked.get(valueSetUri))) {
+			try {
+				expandValueSet(valueSetUri);
+			} catch (Exception e) {
+				logger.error(e.getMessage());
+				isExpandApiInvoked.remove(valueSetUri);
+				throw e;
+			}
+		}
+		
+		while(!codeListCache.containsKey(valueSetUri) && !StringUtils.isEmpty(isExpandApiInvoked.get(valueSetUri))) {
+			try {
+				Thread.currentThread().sleep(500);
+			} catch (InterruptedException e) {
+				logger.error("Thread sleep failed", e);
+			}
+		}
+		List<Object> codes = codeListCache.get(valueSetUri);
+		int randomIndex = new Random(seed).nextInt(codes.size());
+		Map<String, String> code = (Map<String, String>) codes.get(randomIndex);
+		validateCode(code);
+		return new Code(code.get("system"), code.get("code"), code.get("display"));
+	}
 
-  /**
-   * Initialize the RandomCodeGenerator with the supplied TerminologyClient.
-   *
-   * @param terminologyClient the TerminologyClient to be used
-   */
-  public static void initialize(TerminologyClient terminologyClient) {
-    RandomCodeGenerator.terminologyClient = terminologyClient;
-    initializeCache();
-  }
+	@SuppressWarnings("unchecked")
+	private static void expandValueSet(String valueSetUri) throws RuntimeException {
+		isExpandApiInvoked.put(valueSetUri, Thread.currentThread().getName());
+		
+		RestTemplate restTemplate = new RestTemplate();
+		HttpHeaders headers = new HttpHeaders();
+		headers.setContentType(MediaType.APPLICATION_JSON);
+		HttpEntity request = new HttpEntity(headers);
+		
+		ResponseEntity<String> response = restTemplate.exchange(EXPAND_BASE_URL + valueSetUri, HttpMethod.GET, request,
+				String.class);
 
-  private static void initializeCache() {
-    responseCache = CacheBuilder.newBuilder()
-        .maximumSize(RESPONSE_CACHE_SIZE)
-        .build(
-            new CacheLoader<ExpandInput, ValueSet>() {
-              @Override
-              public ValueSet load(@Nonnull ExpandInput key) {
-                return terminologyClient
-                    .expand(new UriType(key.getValueSetUri()), new IntegerType(EXPAND_PAGE_SIZE),
-                        new IntegerType(key.getOffset()));
-              }
-            }
-        );
-  }
+		ObjectMapper objectMapper = new ObjectMapper();
+		Map<String, Object> valueSet = null;
+		try {
+			valueSet = objectMapper.readValue(response.getBody(), new TypeReference<Map<String, Object>>() {
+			});
+		} catch (JsonProcessingException e) {
+			logger.error("JsonProcessingException", e);
+			throw new RuntimeException("JsonProcessingException while parsing valueSet response");
+		}
 
-  /**
-   * Clear the terminology service configuration.
-   */
-  public static void reset() {
-    RandomCodeGenerator.terminologyClient = null;
-  }
+		Map<String, Object> expansion = (Map<String, Object>) valueSet.get("expansion");
+		validateExpansion(expansion);
+		codeListCache.put(valueSetUri, (List<Object>) expansion.get("contains"));
+		isExpandApiInvoked.remove(valueSetUri);
+	}
 
-  /**
-   * Gets a random code from the expansion of a ValueSet.
-   *
-   * @param valueSetUri the URI of the ValueSet
-   * @param seed a random seed to ensure reproducibility of this result
-   * @return the randomly selected Code
-   */
-  public static Code getCode(String valueSetUri, long seed) {
-    if (terminologyClient == null) {
-      throw new RuntimeException(
-          "Unable to generate code from ValueSet URI: terminology service not configured");
-    }
-    ValueSetExpansionComponent expansion = expandValueSet(valueSetUri);
+	private static void validateExpansion(@Nonnull Map<String, Object> expansion) {
+		if (!expansion.containsKey("contains") || ((Collection) expansion.get("contains")).isEmpty()) {
+			throw new RuntimeException("ValueSet expansion does not contain any codes");
+		} else if (!expansion.containsKey("total")) {
+			throw new RuntimeException("No total element in ValueSet expand result");
+		}
+	}
 
-    Random random = new Random(seed);
-    int randomIndex = random.nextInt(expansion.getTotal());
+	private static void validateCode(Map<String, String> code) {
+		if (StringUtils.isAnyEmpty(code.get("system"), code.get("code"), code.get("display"))) {
+			throw new RuntimeException("ValueSet contains element does not contain system, code and display");
+		}
+	}
 
-    ValueSetExpansionContainsComponent contains = expansion.getContains().get(randomIndex);
-    validateContains(contains);
+	private static class ExpandInput {
 
-    return new Code(contains.getSystem(), contains.getCode(), contains.getDisplay());
-  }
+		@Nonnull
+		private final String valueSetUri;
+		private final int offset;
 
-  private static ValueSetExpansionComponent expandValueSet(String valueSetUri) {
-    ValueSet response;
-    ValueSetExpansionComponent result = new ValueSetExpansionComponent();
-    int total;
-    int offset = 0;
-    int count = 0;
+		public ExpandInput(@Nonnull String valueSetUri, int offset) {
+			this.valueSetUri = valueSetUri;
+			this.offset = offset;
+		}
 
-    do {
-      offset += count;
-      logger.info("Sending ValueSet expand request to terminology service (" + terminologyClient
-          .getServerBase() + "): url=" + valueSetUri + ", count=" + EXPAND_PAGE_SIZE + ", offset="
-          + offset);
-      try {
-        response = responseCache.get(new ExpandInput(valueSetUri, offset));
-      } catch (ExecutionException e) {
-        throw new RuntimeException("Error expanding ValueSet", e);
-      }
-      validateExpansion(response.getExpansion());
-      total = response.getExpansion().getTotal();
-      count = response.getExpansion().getContains().size();
-      result.getContains().addAll(response.getExpansion().getContains());
-    } while ((offset + count) < total);
-    result.setTotal(total);
+		@Nonnull
+		public String getValueSetUri() {
+			return valueSetUri;
+		}
 
-    return result;
-  }
+		public int getOffset() {
+			return offset;
+		}
 
-  private static void validateExpansion(@Nonnull ValueSetExpansionComponent expansion) {
-    if (expansion.getContains().isEmpty()) {
-      throw new RuntimeException("ValueSet expansion does not contain any codes");
-    } else if (expansion.getTotalElement().isEmpty()) {
-      throw new RuntimeException("No total element in ValueSet expand result");
-    }
-  }
+		@Override
+		public boolean equals(Object o) {
+			if (this == o) {
+				return true;
+			}
+			if (o == null || getClass() != o.getClass()) {
+				return false;
+			}
+			ExpandInput that = (ExpandInput) o;
+			return offset == that.offset && valueSetUri.equals(that.valueSetUri);
+		}
 
-  private static void validateContains(ValueSetExpansionContainsComponent contains) {
-    if (contains.getSystem() == null || contains.getCode() == null
-        || contains.getDisplay() == null) {
-      throw new RuntimeException(
-          "ValueSet contains element does not contain system, code and display");
-    }
-  }
+		@Override
+		public int hashCode() {
+			return Objects.hash(valueSetUri, offset);
+		}
 
-  private static class ExpandInput {
-
-    @Nonnull
-    private final String valueSetUri;
-    private final int offset;
-
-    public ExpandInput(@Nonnull String valueSetUri, int offset) {
-      this.valueSetUri = valueSetUri;
-      this.offset = offset;
-    }
-
-    @Nonnull
-    public String getValueSetUri() {
-      return valueSetUri;
-    }
-
-    public int getOffset() {
-      return offset;
-    }
-
-    @Override
-    public boolean equals(Object o) {
-      if (this == o) {
-        return true;
-      }
-      if (o == null || getClass() != o.getClass()) {
-        return false;
-      }
-      ExpandInput that = (ExpandInput) o;
-      return offset == that.offset
-          && valueSetUri.equals(that.valueSetUri);
-    }
-
-    @Override
-    public int hashCode() {
-      return Objects.hash(valueSetUri, offset);
-    }
-
-  }
+	}
 }
