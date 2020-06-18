@@ -89,9 +89,6 @@ public class CodeResolveAndExportTest {
    */
   @Before
   public void setUp() throws Exception {
-    TerminologyClient terminologyClient = getR4FhirContext()
-        .newRestfulClient(TerminologyClient.class, mockTerminologyService.baseUrl() + "/fhir");
-    RandomCodeGenerator.initialize(terminologyClient);
     if (isHttpRecordingEnabled()) {
       WireMock.startRecording(getTxRecordingSource());
     }
