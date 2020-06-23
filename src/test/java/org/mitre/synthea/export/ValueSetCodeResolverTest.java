@@ -39,250 +39,249 @@ import com.github.tomakehurst.wiremock.junit.WireMockRule;
 
 public class ValueSetCodeResolverTest {
 
-  private Person person;
-  private long time;
-  private Encounter encounter;
+	private Person person;
+	private long time;
+	private Encounter encounter;
 
-  @Rule
-  public WireMockRule mockTerminologyService = new WireMockRule(wiremockOptions()
-      .usingFilesUnderDirectory("src/test/resources/wiremock/ValueSetCodeResolverTest"));
+	@Rule
+	public WireMockRule mockTerminologyService = new WireMockRule(
+			wiremockOptions().usingFilesUnderDirectory("src/test/resources/wiremock/ValueSetCodeResolverTest"));
 
-  @Before
-  public void setUp() throws Exception {
-    if (isHttpRecordingEnabled()) {
-      WireMock.startRecording(getTxRecordingSource());
-    }
-    
-    person = new Person(12345L);
-    time = new SimpleDateFormat("yyyy-MM-dd").parse("2014-09-25").getTime();
+	@Before
+	public void setUp() throws Exception {
+		if (isHttpRecordingEnabled()) {
+			WireMock.startRecording(getTxRecordingSource());
+		}
 
-    TestHelper.loadTestProperties();
-    Generator.DEFAULT_STATE = Config.get("test_state.default", "Massachusetts");
-    Location location = new Location(Generator.DEFAULT_STATE, null);
-    location.assignPoint(person, location.randomCityName(person.random));
-    Provider.loadProviders(location, 1L);
+		person = new Person(12345L);
+		time = new SimpleDateFormat("yyyy-MM-dd").parse("2014-09-25").getTime();
 
-    Payer.clear();
-    Config.set("generate.payers.insurance_companies.default_file",
-        "generic/payers/test_payers.csv");
-    Payer.loadPayers(new Location(Generator.DEFAULT_STATE, null));
+		TestHelper.loadTestProperties();
+		Generator.DEFAULT_STATE = Config.get("test_state.default", "Massachusetts");
+		Location location = new Location(Generator.DEFAULT_STATE, null);
+		location.assignPoint(person, location.randomCityName(person.random));
+		Provider.loadProviders(location, 1L);
 
-    encounter = person.encounterStart(time, EncounterType.WELLNESS);
-    String reasonCode = "275926002";
-    String reasonDisplay = "Screening - health check";
-    encounter.reason = new Code(SNOMED_URI, reasonCode, reasonDisplay);
-    encounter.codes.add(encounter.reason);
-  }
+		Payer.clear();
+		Config.set("generate.payers.insurance_companies.default_file", "generic/payers/test_payers.csv");
+		Payer.loadPayers(new Location(Generator.DEFAULT_STATE, null));
 
-  @Test
-  public void resolveReportValue() {
-    Code observationType = new Code(LOINC_URI, "73985-4", "Exercise activity");
-    Code observationValue = new Code(LOINC_URI, "LA11837-4", "Bicycling");
-    observationValue.valueSet = "http://loinc.org/vs/LL734-5";
-    encounter.addObservation(time, observationType.code, observationValue, observationType.display);
+		encounter = person.encounterStart(time, EncounterType.WELLNESS);
+		String reasonCode = "275926002";
+		String reasonDisplay = "Screening - health check";
+		encounter.reason = new Code(SNOMED_URI, reasonCode, reasonDisplay);
+		encounter.codes.add(encounter.reason);
+	}
 
-    Code reportType = new Code(SNOMED_URI, "371543004",
-        "Comprehensive history and physical report");
-    reportType.valueSet = SNOMED_URI + "?fhir_vs=<<371531000";
-    person.record.report(time, reportType.code, 1);
+	@Test
+	public void resolveReportValue() {
+		Code observationType = new Code(LOINC_URI, "73985-4", "Exercise activity");
+		Code observationValue = new Code(LOINC_URI, "LA11837-4", "Bicycling");
+		observationValue.valueSet = "http://loinc.org/vs/LL734-5";
+		encounter.addObservation(time, observationType.code, observationValue, observationType.display);
 
-    ValueSetCodeResolver valueSetCodeResolver = new ValueSetCodeResolver(person);
-    Person resolvedPerson = valueSetCodeResolver.resolve();
+		Code reportType = new Code(SNOMED_URI, "371543004", "Comprehensive history and physical report");
+		reportType.valueSet = SNOMED_URI + "?fhir_vs=<<371531000";
+		person.record.report(time, reportType.code, 1);
 
-    assertEquals(1, resolvedPerson.record.encounters.size());
-    Encounter resolvedEncounter = resolvedPerson.record.encounters.get(0);
-    assertEquals(1, resolvedEncounter.reports.size());
-    Report resolvedReport = resolvedEncounter.reports.get(0);
-    assertEquals(1, resolvedReport.observations.size());
-    Observation observation = resolvedReport.observations.get(0);
-    Code actualObservationValue = (Code) observation.value;
-    assertEquals(LOINC_URI, actualObservationValue.system);
-    assertEquals("LA11834-1", actualObservationValue.code);
-    assertEquals("Walking", actualObservationValue.display);
-  }
+		ValueSetCodeResolver valueSetCodeResolver = new ValueSetCodeResolver(person);
+		Person resolvedPerson = valueSetCodeResolver.resolve();
 
-  @Test
-  public void resolveProcedureReason() {
-    Code procedureType = new Code(SNOMED_URI, "236172004",
-        "Nephroscopic lithotripsy of ureteric calculus");
-    Code procedureReason = new Code(SNOMED_URI, "95570007", "Renal calculus");
-    procedureReason.valueSet = SNOMED_URI + "?fhir_vs=ecl/<" + procedureReason.code;
-    Procedure procedure = person.record.procedure(time, procedureType.display);
-    procedure.reasons.add(procedureReason);
+		assertEquals(1, resolvedPerson.record.encounters.size());
+		Encounter resolvedEncounter = resolvedPerson.record.encounters.get(0);
+		assertEquals(1, resolvedEncounter.reports.size());
+		Report resolvedReport = resolvedEncounter.reports.get(0);
+		assertEquals(1, resolvedReport.observations.size());
+		Observation observation = resolvedReport.observations.get(0);
+		Code actualObservationValue = (Code) observation.value;
+		assertEquals(LOINC_URI, actualObservationValue.system);
+		assertEquals("LA11834-1", actualObservationValue.code);
+		assertEquals("Walking", actualObservationValue.display);
+	}
 
-    ValueSetCodeResolver valueSetCodeResolver = new ValueSetCodeResolver(person);
-    Person resolvedPerson = valueSetCodeResolver.resolve();
+	@Test
+	public void resolveProcedureReason() {
+		Code procedureType = new Code(SNOMED_URI, "236172004", "Nephroscopic lithotripsy of ureteric calculus");
+		Code procedureReason = new Code(SNOMED_URI, "95570007", "Renal calculus");
+		procedureReason.valueSet = SNOMED_URI + "?fhir_vs=ecl/<" + procedureReason.code;
+		Procedure procedure = person.record.procedure(time, procedureType.display);
+		procedure.reasons.add(procedureReason);
 
-    assertEquals(1, resolvedPerson.record.encounters.size());
-    Encounter resolvedEncounter = resolvedPerson.record.encounters.get(0);
-    assertEquals(1, resolvedEncounter.procedures.size());
-    Procedure resolvedProcedure = resolvedEncounter.procedures.get(0);
-    assertEquals(1, resolvedProcedure.reasons.size());
-    Code actualProcedureReason = resolvedProcedure.reasons.get(0);
-    assertEquals(SNOMED_URI, actualProcedureReason.system);
-    assertEquals("236708007", actualProcedureReason.code);
-    assertEquals("Calyceal renal calculus", actualProcedureReason.display);
-  }
+		ValueSetCodeResolver valueSetCodeResolver = new ValueSetCodeResolver(person);
+		Person resolvedPerson = valueSetCodeResolver.resolve();
 
-  @Test
-  public void resolveMedicationCodes() {
-    Code medicationCode = new Code(SNOMED_URI, "372756006", "Warfarin");
-    Code reasonCode = new Code(SNOMED_URI, "128053003", "Deep venuous thrombosis");
-    reasonCode.valueSet = SNOMED_URI + "?fhir_vs=ecl/<" + reasonCode.code;
-    Code stopReason = new Code(SNOMED_URI, "401207004", "Medicine side effects present");
-    stopReason.valueSet = SNOMED_URI + "?fhir_vs=ecl/<309298003";
-    Medication medication = person.record.medicationStart(time, medicationCode.display, false);
-    medication.codes.add(medicationCode);
-    medication.reasons.add(reasonCode);
-    person.record.medicationEnd(time, medicationCode.display, stopReason);
+		assertEquals(1, resolvedPerson.record.encounters.size());
+		Encounter resolvedEncounter = resolvedPerson.record.encounters.get(0);
+		assertEquals(1, resolvedEncounter.procedures.size());
+		Procedure resolvedProcedure = resolvedEncounter.procedures.get(0);
+		assertEquals(1, resolvedProcedure.reasons.size());
+		Code actualProcedureReason = resolvedProcedure.reasons.get(0);
+		assertEquals(SNOMED_URI, actualProcedureReason.system);
+		assertEquals("236708007", actualProcedureReason.code);
+		assertEquals("Calyceal renal calculus", actualProcedureReason.display);
+	}
 
-    ValueSetCodeResolver valueSetCodeResolver = new ValueSetCodeResolver(person);
-    Person resolvedPerson = valueSetCodeResolver.resolve();
+	@Test
+	public void resolveMedicationCodes() {
+		Code medicationCode = new Code(SNOMED_URI, "372756006", "Warfarin");
+		Code reasonCode = new Code(SNOMED_URI, "128053003", "Deep venuous thrombosis");
+		reasonCode.valueSet = SNOMED_URI + "?fhir_vs=ecl/<" + reasonCode.code;
+		Code stopReason = new Code(SNOMED_URI, "401207004", "Medicine side effects present");
+		stopReason.valueSet = SNOMED_URI + "?fhir_vs=ecl/<309298003";
+		Medication medication = person.record.medicationStart(time, medicationCode.display, false);
+		medication.codes.add(medicationCode);
+		medication.reasons.add(reasonCode);
+		person.record.medicationEnd(time, medicationCode.display, stopReason);
 
-    assertEquals(1, resolvedPerson.record.encounters.size());
-    Encounter resolvedEncounter = resolvedPerson.record.encounters.get(0);
-    assertEquals(1, resolvedEncounter.medications.size());
-    Medication resolvedMedication = resolvedEncounter.medications.get(0);
+		ValueSetCodeResolver valueSetCodeResolver = new ValueSetCodeResolver(person);
+		Person resolvedPerson = valueSetCodeResolver.resolve();
 
-    assertEquals(1, resolvedMedication.reasons.size());
-    Code actualMedicationReason = resolvedMedication.reasons.get(0);
-    assertEquals(SNOMED_URI, actualMedicationReason.system);
-    assertEquals("371051005", actualMedicationReason.code);
-    assertEquals("Traumatic thrombosis of axillary vein", actualMedicationReason.display);
+		assertEquals(1, resolvedPerson.record.encounters.size());
+		Encounter resolvedEncounter = resolvedPerson.record.encounters.get(0);
+		assertEquals(1, resolvedEncounter.medications.size());
+		Medication resolvedMedication = resolvedEncounter.medications.get(0);
 
-    Code actualStopReason = resolvedMedication.stopReason;
-    assertEquals(SNOMED_URI, actualStopReason.system);
-    assertEquals("448152000", actualStopReason.code);
-    assertEquals("Medicine dose too low", actualStopReason.display);
-  }
+		assertEquals(1, resolvedMedication.reasons.size());
+		Code actualMedicationReason = resolvedMedication.reasons.get(0);
+		assertEquals(SNOMED_URI, actualMedicationReason.system);
+		assertEquals("371051005", actualMedicationReason.code);
+		assertEquals("Traumatic thrombosis of axillary vein", actualMedicationReason.display);
 
-  @Test
-  public void resolveCodesInCarePlan() {
-    Code carePlanCode = new Code(SNOMED_URI, "734163000", "Care plan");
-    Code reasonCode = new Code(SNOMED_URI, "90935002", "Haemophilia");
-    reasonCode.valueSet = SNOMED_URI + "?fhir_vs=ecl/<64779008";
-    Code stopReason = new Code(SNOMED_URI, "301857004", "Finding of body region");
-    stopReason.valueSet = SNOMED_URI + "?fhir_vs=ecl/<" + stopReason.code;
-    CarePlan carePlan = person.record.careplanStart(time, carePlanCode.display);
-    carePlan.reasons.add(reasonCode);
-    person.record.careplanEnd(time, carePlanCode.display, stopReason);
+		Code actualStopReason = resolvedMedication.stopReason;
+		assertEquals(SNOMED_URI, actualStopReason.system);
+		assertEquals("448152000", actualStopReason.code);
+		assertEquals("Medicine dose too low", actualStopReason.display);
+	}
 
-    ValueSetCodeResolver valueSetCodeResolver = new ValueSetCodeResolver(person);
-    Person resolvedPerson = valueSetCodeResolver.resolve();
+	@Test
+	public void resolveCodesInCarePlan() {
+		Code carePlanCode = new Code(SNOMED_URI, "734163000", "Care plan");
+		Code reasonCode = new Code(SNOMED_URI, "90935002", "Haemophilia");
+		reasonCode.valueSet = SNOMED_URI + "?fhir_vs=ecl/<64779008";
+		Code stopReason = new Code(SNOMED_URI, "301857004", "Finding of body region");
+		stopReason.valueSet = SNOMED_URI + "?fhir_vs=ecl/<" + stopReason.code;
+		CarePlan carePlan = person.record.careplanStart(time, carePlanCode.display);
+		carePlan.reasons.add(reasonCode);
+		person.record.careplanEnd(time, carePlanCode.display, stopReason);
 
-    assertEquals(1, resolvedPerson.record.encounters.size());
-    Encounter resolvedEncounter = resolvedPerson.record.encounters.get(0);
-    assertEquals(1, resolvedEncounter.careplans.size());
-    CarePlan resolvedCarePlan = resolvedEncounter.careplans.get(0);
+		ValueSetCodeResolver valueSetCodeResolver = new ValueSetCodeResolver(person);
+		Person resolvedPerson = valueSetCodeResolver.resolve();
 
-    assertEquals(1, resolvedCarePlan.reasons.size());
-    Code actualCarePlanReason = resolvedCarePlan.reasons.get(0);
-    assertEquals(SNOMED_URI, actualCarePlanReason.system);
-    assertEquals("440867000", actualCarePlanReason.code);
-    assertEquals("Moderate hereditary factor IX deficiency disease with inhibitor", actualCarePlanReason.display);
+		assertEquals(1, resolvedPerson.record.encounters.size());
+		Encounter resolvedEncounter = resolvedPerson.record.encounters.get(0);
+		assertEquals(1, resolvedEncounter.careplans.size());
+		CarePlan resolvedCarePlan = resolvedEncounter.careplans.get(0);
 
-    Code actualStopReason = resolvedCarePlan.stopReason;
-    assertEquals(SNOMED_URI, actualStopReason.system);
-    assertEquals("95456009", actualStopReason.code);
-    assertEquals("Brain stem ischaemia", actualStopReason.display);
-  }
+		assertEquals(1, resolvedCarePlan.reasons.size());
+		Code actualCarePlanReason = resolvedCarePlan.reasons.get(0);
+		assertEquals(SNOMED_URI, actualCarePlanReason.system);
+		assertEquals("440867000", actualCarePlanReason.code);
+		assertEquals("Moderate hereditary factor IX deficiency disease with inhibitor", actualCarePlanReason.display);
 
-  @Test
-  public void resolveCodesInImagingStudy() throws Exception {
-    // We load the imaging study from a module fixture, as there doesn't seem to be a way to
-    // instantiate it programmatically.
-    Module module = TestHelper.getFixture("imaging_study_with_valueset.json");
-    person.history = new ArrayList<>();
-    State encounterState = module.getState("ED_Visit");
-    assertTrue(encounterState.process(person, time));
-    person.history.add(encounterState);
-    State mri = module.getState("Knee_MRI");
-    assertTrue(mri.process(person, time));
+		Code actualStopReason = resolvedCarePlan.stopReason;
+		assertEquals(SNOMED_URI, actualStopReason.system);
+		assertEquals("95456009", actualStopReason.code);
+		assertEquals("Brain stem ischaemia", actualStopReason.display);
+	}
 
-    ValueSetCodeResolver valueSetCodeResolver = new ValueSetCodeResolver(person);
-    Person resolvedPerson = valueSetCodeResolver.resolve();
+	@Test
+	public void resolveCodesInImagingStudy() throws Exception {
+		// We load the imaging study from a module fixture, as there doesn't seem to be
+		// a way to
+		// instantiate it programmatically.
+		Module module = TestHelper.getFixture("imaging_study_with_valueset.json");
+		person.history = new ArrayList<>();
+		State encounterState = module.getState("ED_Visit");
+		assertTrue(encounterState.process(person, time));
+		person.history.add(encounterState);
+		State mri = module.getState("Knee_MRI");
+		assertTrue(mri.process(person, time));
 
-    assertEquals(2, resolvedPerson.record.encounters.size());
-    Encounter resolvedEncounter = resolvedPerson.record.encounters.get(1);
-    assertEquals(1, resolvedEncounter.imagingStudies.size());
-    ImagingStudy resolvedImagingStudy = resolvedEncounter.imagingStudies.get(0);
+		ValueSetCodeResolver valueSetCodeResolver = new ValueSetCodeResolver(person);
+		Person resolvedPerson = valueSetCodeResolver.resolve();
 
-    assertEquals(1, resolvedImagingStudy.series.size());
-    Series series = resolvedImagingStudy.series.get(0);
-    assertEquals(SNOMED_URI, series.bodySite.system);
-    assertEquals("723247004", series.bodySite.code);
-    assertEquals("Structure of medial meniscus of right knee joint",
-        series.bodySite.display);
+		assertEquals(2, resolvedPerson.record.encounters.size());
+		Encounter resolvedEncounter = resolvedPerson.record.encounters.get(1);
+		assertEquals(1, resolvedEncounter.imagingStudies.size());
+		ImagingStudy resolvedImagingStudy = resolvedEncounter.imagingStudies.get(0);
 
-    // Modality and SOP class are not really good candidates for ValueSet-based selection, so we do
-    // not currently have a sensible test case for these.
-  }
+		assertEquals(1, resolvedImagingStudy.series.size());
+		Series series = resolvedImagingStudy.series.get(0);
+		assertEquals(SNOMED_URI, series.bodySite.system);
+		assertEquals("723247004", series.bodySite.code);
+		assertEquals("Structure of medial meniscus of right knee joint", series.bodySite.display);
 
-  @Test
-  public void handlesNullHealthRecord() {
-    person.record = null;
-    ValueSetCodeResolver valueSetCodeResolver = new ValueSetCodeResolver(person);
-    valueSetCodeResolver.resolve();
-  }
+		// Modality and SOP class are not really good candidates for ValueSet-based
+		// selection, so we do
+		// not currently have a sensible test case for these.
+	}
 
-  @Test
-  public void handlesNullEncounter() {
-    person.record.encounters.set(0, null);
-    ValueSetCodeResolver valueSetCodeResolver = new ValueSetCodeResolver(person);
-    valueSetCodeResolver.resolve();
-  }
+	@Test
+	public void handlesNullHealthRecord() {
+		person.record = null;
+		ValueSetCodeResolver valueSetCodeResolver = new ValueSetCodeResolver(person);
+		valueSetCodeResolver.resolve();
+	}
 
-  @Test
-  public void handlesNullCodeInObservation() {
-    encounter.addObservation(time, "foo", null, "bar");
-    ValueSetCodeResolver valueSetCodeResolver = new ValueSetCodeResolver(person);
-    valueSetCodeResolver.resolve();
-  }
+	@Test
+	public void handlesNullEncounter() {
+		person.record.encounters.set(0, null);
+		ValueSetCodeResolver valueSetCodeResolver = new ValueSetCodeResolver(person);
+		valueSetCodeResolver.resolve();
+	}
 
-  @Test
-  public void handlesNullCodeInCarePlan() {
-    CarePlan carePlan = person.record.careplanStart(time, "foo");
-    carePlan.reasons = null;
-    carePlan.activities = null;
-    person.record.careplanEnd(time, "foo", null);
+	@Test
+	public void handlesNullCodeInObservation() {
+		encounter.addObservation(time, "foo", null, "bar");
+		ValueSetCodeResolver valueSetCodeResolver = new ValueSetCodeResolver(person);
+		valueSetCodeResolver.resolve();
+	}
 
-    ValueSetCodeResolver valueSetCodeResolver = new ValueSetCodeResolver(person);
-    valueSetCodeResolver.resolve();
-  }
+	@Test
+	public void handlesNullCodeInCarePlan() {
+		CarePlan carePlan = person.record.careplanStart(time, "foo");
+		carePlan.reasons = null;
+		carePlan.activities = null;
+		person.record.careplanEnd(time, "foo", null);
 
-  @Test
-  public void handlesNullCodesInImagingStudy() throws Exception {
-    // We load the imaging study from a module fixture, as there doesn't seem to be a way to
-    // instantiate it programmatically.
-    Module module = TestHelper.getFixture("imaging_study_with_valueset.json");
-    person.history = new ArrayList<>();
-    State encounterState = module.getState("ED_Visit");
-    assertTrue(encounterState.process(person, time));
-    person.history.add(encounterState);
-    State mri = module.getState("Knee_MRI");
-    assertTrue(mri.process(person, time));
+		ValueSetCodeResolver valueSetCodeResolver = new ValueSetCodeResolver(person);
+		valueSetCodeResolver.resolve();
+	}
 
-    Encounter imagingEncounter = person.record.encounters.get(1);
-    imagingEncounter.imagingStudies.get(0).series.get(0).instances.set(0, null);
-    ValueSetCodeResolver valueSetCodeResolver = new ValueSetCodeResolver(person);
-    valueSetCodeResolver.resolve();
+	@Test
+	public void handlesNullCodesInImagingStudy() throws Exception {
+		// We load the imaging study from a module fixture, as there doesn't seem to be
+		// a way to
+		// instantiate it programmatically.
+		Module module = TestHelper.getFixture("imaging_study_with_valueset.json");
+		person.history = new ArrayList<>();
+		State encounterState = module.getState("ED_Visit");
+		assertTrue(encounterState.process(person, time));
+		person.history.add(encounterState);
+		State mri = module.getState("Knee_MRI");
+		assertTrue(mri.process(person, time));
 
-    imagingEncounter.imagingStudies.get(0).series.set(0, null);
-    valueSetCodeResolver = new ValueSetCodeResolver(person);
-    valueSetCodeResolver.resolve();
-  }
+		Encounter imagingEncounter = person.record.encounters.get(1);
+		imagingEncounter.imagingStudies.get(0).series.get(0).instances.set(0, null);
+		ValueSetCodeResolver valueSetCodeResolver = new ValueSetCodeResolver(person);
+		valueSetCodeResolver.resolve();
 
-  @Test
-  public void handlesNullAttribute() {
-    person.attributes = null;
-    ValueSetCodeResolver valueSetCodeResolver = new ValueSetCodeResolver(person);
-    valueSetCodeResolver.resolve();
-  }
+		imagingEncounter.imagingStudies.get(0).series.set(0, null);
+		valueSetCodeResolver = new ValueSetCodeResolver(person);
+		valueSetCodeResolver.resolve();
+	}
 
-  @After
-  public void tearDown() {
-    if (isHttpRecordingEnabled()) {
-      WireMock.stopRecording();
-    }
-  }
+	@Test
+	public void handlesNullAttribute() {
+		person.attributes = null;
+		ValueSetCodeResolver valueSetCodeResolver = new ValueSetCodeResolver(person);
+		valueSetCodeResolver.resolve();
+	}
+
+	@After
+	public void tearDown() {
+		if (isHttpRecordingEnabled()) {
+			WireMock.stopRecording();
+		}
+	}
 }
