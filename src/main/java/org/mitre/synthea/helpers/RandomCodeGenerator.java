@@ -38,8 +38,10 @@ public abstract class RandomCodeGenerator {
 			+ "/ValueSet/$expand?url=";
 	private static final Logger logger = LoggerFactory.getLogger(RandomCodeGenerator.class);
 	private static Map<String, String> isExpandApiInvoked = new HashMap<>();
-	private static Map<String, List<Object>> codeListCache = new HashMap<>();
-
+	public static Map<String, List<Object>> codeListCache = new HashMap<>();
+	
+	public static RestTemplate restTemplate = new RestTemplate();
+	
 	/**
 	 * Gets a random code from the expansion of a ValueSet.
 	 *
@@ -64,7 +66,7 @@ public abstract class RandomCodeGenerator {
 		
 		while(!codeListCache.containsKey(valueSetUri) && !StringUtils.isEmpty(isExpandApiInvoked.get(valueSetUri))) {
 			try {
-				Thread.currentThread().sleep(500);
+				Thread.currentThread().sleep(300);
 			} catch (InterruptedException e) {
 				logger.error("Thread sleep failed", e);
 			}
@@ -77,14 +79,13 @@ public abstract class RandomCodeGenerator {
 	}
 
 	@SuppressWarnings("unchecked")
-	private static void expandValueSet(String valueSetUri) throws RuntimeException, RestClientException  {
+	private static void expandValueSet(String valueSetUri) throws RuntimeException, RestClientException {
 		isExpandApiInvoked.put(valueSetUri, Thread.currentThread().getName());
-		
-		RestTemplate restTemplate = new RestTemplate();
+
 		HttpHeaders headers = new HttpHeaders();
 		headers.setContentType(MediaType.APPLICATION_JSON);
 		HttpEntity<String> request = new HttpEntity<>(headers);
-		
+
 		ResponseEntity<String> response = restTemplate.exchange(EXPAND_BASE_URL + valueSetUri, HttpMethod.GET, request,
 				String.class);
 
@@ -105,7 +106,9 @@ public abstract class RandomCodeGenerator {
 	}
 
 	private static void validateExpansion(@Nonnull Map<String, Object> expansion) {
-		if (!expansion.containsKey("contains") || ((Collection) expansion.get("contains")).isEmpty()) {
+		if(expansion == null) {
+			throw new RuntimeException("ValueSet does not contain expansion");
+		} else if (!expansion.containsKey("contains") || ((Collection) expansion.get("contains")).isEmpty()) {
 			throw new RuntimeException("ValueSet expansion does not contain any codes");
 		} else if (!expansion.containsKey("total")) {
 			throw new RuntimeException("No total element in ValueSet expand result");

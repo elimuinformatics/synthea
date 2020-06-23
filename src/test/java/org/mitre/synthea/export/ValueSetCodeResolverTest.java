@@ -4,13 +4,10 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.mitre.synthea.TestHelper.LOINC_URI;
 import static org.mitre.synthea.TestHelper.SNOMED_URI;
-import static org.mitre.synthea.TestHelper.getR4FhirContext;
 import static org.mitre.synthea.TestHelper.getTxRecordingSource;
 import static org.mitre.synthea.TestHelper.isHttpRecordingEnabled;
 import static org.mitre.synthea.TestHelper.wiremockOptions;
 
-import com.github.tomakehurst.wiremock.client.WireMock;
-import com.github.tomakehurst.wiremock.junit.WireMockRule;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import org.junit.After;
@@ -22,8 +19,6 @@ import org.mitre.synthea.engine.Generator;
 import org.mitre.synthea.engine.Module;
 import org.mitre.synthea.engine.State;
 import org.mitre.synthea.helpers.Config;
-import org.mitre.synthea.helpers.RandomCodeGenerator;
-import org.mitre.synthea.helpers.TerminologyClient;
 import org.mitre.synthea.world.agents.Payer;
 import org.mitre.synthea.world.agents.Person;
 import org.mitre.synthea.world.agents.Provider;
@@ -38,6 +33,9 @@ import org.mitre.synthea.world.concepts.HealthRecord.Observation;
 import org.mitre.synthea.world.concepts.HealthRecord.Procedure;
 import org.mitre.synthea.world.concepts.HealthRecord.Report;
 import org.mitre.synthea.world.geography.Location;
+
+import com.github.tomakehurst.wiremock.client.WireMock;
+import com.github.tomakehurst.wiremock.junit.WireMockRule;
 
 public class ValueSetCodeResolverTest {
 
@@ -122,8 +120,8 @@ public class ValueSetCodeResolverTest {
     assertEquals(1, resolvedProcedure.reasons.size());
     Code actualProcedureReason = resolvedProcedure.reasons.get(0);
     assertEquals(SNOMED_URI, actualProcedureReason.system);
-    assertEquals("699322002", actualProcedureReason.code);
-    assertEquals("Matrix stone of kidney", actualProcedureReason.display);
+    assertEquals("236708007", actualProcedureReason.code);
+    assertEquals("Calyceal renal calculus", actualProcedureReason.display);
   }
 
   @Test
@@ -149,13 +147,13 @@ public class ValueSetCodeResolverTest {
     assertEquals(1, resolvedMedication.reasons.size());
     Code actualMedicationReason = resolvedMedication.reasons.get(0);
     assertEquals(SNOMED_URI, actualMedicationReason.system);
-    assertEquals("709687000", actualMedicationReason.code);
-    assertEquals("Chronic deep vein thrombosis of pelvic vein", actualMedicationReason.display);
+    assertEquals("371051005", actualMedicationReason.code);
+    assertEquals("Traumatic thrombosis of axillary vein", actualMedicationReason.display);
 
     Code actualStopReason = resolvedMedication.stopReason;
     assertEquals(SNOMED_URI, actualStopReason.system);
-    assertEquals("408343002", actualStopReason.code);
-    assertEquals("Indication for each drug checked", actualStopReason.display);
+    assertEquals("448152000", actualStopReason.code);
+    assertEquals("Medicine dose too low", actualStopReason.display);
   }
 
   @Test
@@ -180,14 +178,13 @@ public class ValueSetCodeResolverTest {
     assertEquals(1, resolvedCarePlan.reasons.size());
     Code actualCarePlanReason = resolvedCarePlan.reasons.get(0);
     assertEquals(SNOMED_URI, actualCarePlanReason.system);
-    assertEquals("773422002", actualCarePlanReason.code);
-    assertEquals("East Texas bleeding disorder", actualCarePlanReason.display);
+    assertEquals("440867000", actualCarePlanReason.code);
+    assertEquals("Moderate hereditary factor IX deficiency disease with inhibitor", actualCarePlanReason.display);
 
     Code actualStopReason = resolvedCarePlan.stopReason;
     assertEquals(SNOMED_URI, actualStopReason.system);
-    assertEquals("200405004", actualStopReason.code);
-    assertEquals("Retracted nipple in pregnancy, the puerperium or lactation - delivered "
-        + "with postnatal complication", actualStopReason.display);
+    assertEquals("95456009", actualStopReason.code);
+    assertEquals("Brain stem ischaemia", actualStopReason.display);
   }
 
   @Test
@@ -213,8 +210,8 @@ public class ValueSetCodeResolverTest {
     assertEquals(1, resolvedImagingStudy.series.size());
     Series series = resolvedImagingStudy.series.get(0);
     assertEquals(SNOMED_URI, series.bodySite.system);
-    assertEquals("762879008", series.bodySite.code);
-    assertEquals("Structure of right common peroneal nerve in popliteal region",
+    assertEquals("723247004", series.bodySite.code);
+    assertEquals("Structure of medial meniscus of right knee joint",
         series.bodySite.display);
 
     // Modality and SOP class are not really good candidates for ValueSet-based selection, so we do
