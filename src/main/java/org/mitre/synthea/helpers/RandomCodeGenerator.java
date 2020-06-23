@@ -34,8 +34,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
  */
 public abstract class RandomCodeGenerator {
 	
-	private static final String EXPAND_BASE_URL = Config.get("generate.terminology_service_url")
+	private static final String EXPAND_BASE_URL = setBaseUrl()
 			+ "/ValueSet/$expand?url=";
+
 	private static final Logger logger = LoggerFactory.getLogger(RandomCodeGenerator.class);
 	private static Map<String, String> isExpandApiInvoked = new HashMap<>();
 	public static Map<String, List<Object>> codeListCache = new HashMap<>();
@@ -76,6 +77,10 @@ public abstract class RandomCodeGenerator {
 		Map<String, String> code = (Map<String, String>) codes.get(randomIndex);
 		validateCode(code);
 		return new Code(code.get("system"), code.get("code"), code.get("display"));
+	}
+	
+	private static String setBaseUrl() {
+		return Config.get("generate.terminology_service_url");
 	}
 
 	@SuppressWarnings("unchecked")
