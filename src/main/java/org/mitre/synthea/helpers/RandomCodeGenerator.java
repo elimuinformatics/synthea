@@ -34,8 +34,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
  */
 public abstract class RandomCodeGenerator {
 	
-	private static final String EXPAND_BASE_URL = setBaseUrl()
-			+ "/ValueSet/$expand?url=";
+	public static String expandBaseUrl = Config.get("generate.terminology_service_url") + "/ValueSet/$expand?url=";
 
 	private static final Logger logger = LoggerFactory.getLogger(RandomCodeGenerator.class);
 	private static Map<String, String> isExpandApiInvoked = new HashMap<>();
@@ -78,10 +77,6 @@ public abstract class RandomCodeGenerator {
 		validateCode(code);
 		return new Code(code.get("system"), code.get("code"), code.get("display"));
 	}
-	
-	private static String setBaseUrl() {
-		return Config.get("generate.terminology_service_url");
-	}
 
 	@SuppressWarnings("unchecked")
 	private static void expandValueSet(String valueSetUri) throws RuntimeException, RestClientException {
@@ -91,7 +86,7 @@ public abstract class RandomCodeGenerator {
 		headers.setContentType(MediaType.APPLICATION_JSON);
 		HttpEntity<String> request = new HttpEntity<>(headers);
 
-		ResponseEntity<String> response = restTemplate.exchange(EXPAND_BASE_URL + valueSetUri, HttpMethod.GET, request,
+		ResponseEntity<String> response = restTemplate.exchange(expandBaseUrl + valueSetUri, HttpMethod.GET, request,
 				String.class);
 
 		ObjectMapper objectMapper = new ObjectMapper();
@@ -124,5 +119,9 @@ public abstract class RandomCodeGenerator {
 		if (StringUtils.isAnyEmpty(code.get("system"), code.get("code"), code.get("display"))) {
 			throw new RuntimeException("ValueSet contains element does not contain system, code and display");
 		}
+	}
+	
+	public static void setBaseUrl(String url) {
+		expandBaseUrl = url + "/ValueSet/$expand?url=";
 	}
 }

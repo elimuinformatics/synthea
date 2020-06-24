@@ -65,9 +65,9 @@ import org.xml.sax.SAXException;
 
 public class CodeResolveAndExportTest {
 
-  private static final String EXPECTED_REASON_CODE = "242332002";
+  private static final String EXPECTED_REASON_CODE = "242330005";
   private static final String EXPECTED_REASON_DISPLAY =
-      "Accidental ingestion of matrimony vine berries";
+      "Accidental ingestion of lily of the valley berries";
   private static final String OBSERVATION_CODE = "11376-1";
   private static final String OBSERVATION_DISPLAY = "Injury location";
   private static final String EXPECTED_VALUE_CODE = "LA14090-7";
@@ -92,6 +92,7 @@ public class CodeResolveAndExportTest {
     if (isHttpRecordingEnabled()) {
       WireMock.startRecording(getTxRecordingSource());
     }
+    RandomCodeGenerator.setBaseUrl("https://r4.ontoserver.csiro.au/fhir");
 
     TestHelper.exportOff();
     Config.set("exporter.ccda.export", "true");

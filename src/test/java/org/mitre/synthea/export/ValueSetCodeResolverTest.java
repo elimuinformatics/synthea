@@ -4,21 +4,18 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.mitre.synthea.TestHelper.LOINC_URI;
 import static org.mitre.synthea.TestHelper.SNOMED_URI;
-import static org.mitre.synthea.TestHelper.getTxRecordingSource;
-import static org.mitre.synthea.TestHelper.isHttpRecordingEnabled;
-import static org.mitre.synthea.TestHelper.wiremockOptions;
 
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import org.junit.After;
+
 import org.junit.Before;
-import org.junit.Rule;
 import org.junit.Test;
 import org.mitre.synthea.TestHelper;
 import org.mitre.synthea.engine.Generator;
 import org.mitre.synthea.engine.Module;
 import org.mitre.synthea.engine.State;
 import org.mitre.synthea.helpers.Config;
+import org.mitre.synthea.helpers.RandomCodeGenerator;
 import org.mitre.synthea.world.agents.Payer;
 import org.mitre.synthea.world.agents.Person;
 import org.mitre.synthea.world.agents.Provider;
@@ -34,24 +31,15 @@ import org.mitre.synthea.world.concepts.HealthRecord.Procedure;
 import org.mitre.synthea.world.concepts.HealthRecord.Report;
 import org.mitre.synthea.world.geography.Location;
 
-import com.github.tomakehurst.wiremock.client.WireMock;
-import com.github.tomakehurst.wiremock.junit.WireMockRule;
-
 public class ValueSetCodeResolverTest {
 
 	private Person person;
 	private long time;
 	private Encounter encounter;
 
-	@Rule
-	public WireMockRule mockTerminologyService = new WireMockRule(
-			wiremockOptions().usingFilesUnderDirectory("src/test/resources/wiremock/ValueSetCodeResolverTest"));
-
 	@Before
 	public void setUp() throws Exception {
-		if (isHttpRecordingEnabled()) {
-			WireMock.startRecording(getTxRecordingSource());
-		}
+		RandomCodeGenerator.setBaseUrl("https://r4.ontoserver.csiro.au/fhir");
 
 		person = new Person(12345L);
 		time = new SimpleDateFormat("yyyy-MM-dd").parse("2014-09-25").getTime();
@@ -276,12 +264,5 @@ public class ValueSetCodeResolverTest {
 		person.attributes = null;
 		ValueSetCodeResolver valueSetCodeResolver = new ValueSetCodeResolver(person);
 		valueSetCodeResolver.resolve();
-	}
-
-	@After
-	public void tearDown() {
-		if (isHttpRecordingEnabled()) {
-			WireMock.stopRecording();
-		}
 	}
 }
