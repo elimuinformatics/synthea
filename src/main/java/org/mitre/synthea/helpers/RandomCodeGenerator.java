@@ -53,24 +53,7 @@ public abstract class RandomCodeGenerator {
 	 */
 	@SuppressWarnings({ "unchecked", "static-access" })
 	public static Code getCode(String valueSetUri, long seed) {
-
-		if (!codeListCache.containsKey(valueSetUri)  && StringUtils.isEmpty(isExpandApiInvoked.get(valueSetUri))) {
-			try {
-				expandValueSet(valueSetUri);
-			} catch (Exception e) {
-				logger.error(e.getMessage());
-				isExpandApiInvoked.remove(valueSetUri);
-				throw e;
-			}
-		}
-		
-		while(!codeListCache.containsKey(valueSetUri) && !StringUtils.isEmpty(isExpandApiInvoked.get(valueSetUri))) {
-			try {
-				Thread.currentThread().sleep(300);
-			} catch (InterruptedException e) {
-				logger.error("Thread sleep failed", e);
-			}
-		}
+		expandValueSet(valueSetUri);
 		List<Object> codes = codeListCache.get(valueSetUri);
 		int randomIndex = new Random(seed).nextInt(codes.size());
 		Map<String, String> code = (Map<String, String>) codes.get(randomIndex);
@@ -79,30 +62,29 @@ public abstract class RandomCodeGenerator {
 	}
 
 	@SuppressWarnings("unchecked")
-	private static void expandValueSet(String valueSetUri) throws RuntimeException, RestClientException {
-		isExpandApiInvoked.put(valueSetUri, Thread.currentThread().getName());
+	private static synchronized void expandValueSet(String valueSetUri) {
+		if (!codeListCache.containsKey(valueSetUri)) {
+			HttpHeaders headers = new HttpHeaders();
+			headers.setContentType(MediaType.APPLICATION_JSON);
+			HttpEntity<String> request = new HttpEntity<>(headers);
 
-		HttpHeaders headers = new HttpHeaders();
-		headers.setContentType(MediaType.APPLICATION_JSON);
-		HttpEntity<String> request = new HttpEntity<>(headers);
+			ResponseEntity<String> response = restTemplate.exchange(expandBaseUrl + valueSetUri, HttpMethod.GET, request,
+					String.class);
+			
+			ObjectMapper objectMapper = new ObjectMapper();
+			Map<String, Object> valueSet = null;
+			try {
+				valueSet = objectMapper.readValue(response.getBody(), new TypeReference<Map<String, Object>>() {
+				});
+			} catch (JsonProcessingException e) {
+				logger.error("JsonProcessingException", e);
+				throw new RuntimeException("JsonProcessingException while parsing valueSet response");
+			}
 
-		ResponseEntity<String> response = restTemplate.exchange(expandBaseUrl + valueSetUri, HttpMethod.GET, request,
-				String.class);
-
-		ObjectMapper objectMapper = new ObjectMapper();
-		Map<String, Object> valueSet = null;
-		try {
-			valueSet = objectMapper.readValue(response.getBody(), new TypeReference<Map<String, Object>>() {
-			});
-		} catch (JsonProcessingException e) {
-			logger.error("JsonProcessingException", e);
-			throw new RuntimeException("JsonProcessingException while parsing valueSet response");
+			Map<String, Object> expansion = (Map<String, Object>) valueSet.get("expansion");
+			validateExpansion(expansion);
+			codeListCache.put(valueSetUri, (List<Object>) expansion.get("contains"));
 		}
-
-		Map<String, Object> expansion = (Map<String, Object>) valueSet.get("expansion");
-		validateExpansion(expansion);
-		codeListCache.put(valueSetUri, (List<Object>) expansion.get("contains"));
-		isExpandApiInvoked.remove(valueSetUri);
 	}
 
 	private static void validateExpansion(@Nonnull Map<String, Object> expansion) {

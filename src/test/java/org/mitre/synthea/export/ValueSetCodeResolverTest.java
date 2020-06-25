@@ -105,8 +105,8 @@ public class ValueSetCodeResolverTest {
 		assertEquals(1, resolvedProcedure.reasons.size());
 		Code actualProcedureReason = resolvedProcedure.reasons.get(0);
 		assertEquals(SNOMED_URI, actualProcedureReason.system);
-		assertEquals("236708007", actualProcedureReason.code);
-		assertEquals("Calyceal renal calculus", actualProcedureReason.display);
+		assertEquals("48061001", actualProcedureReason.code);
+		assertEquals("Congenital calculus of kidney", actualProcedureReason.display);
 	}
 
 	@Test
@@ -132,13 +132,13 @@ public class ValueSetCodeResolverTest {
 		assertEquals(1, resolvedMedication.reasons.size());
 		Code actualMedicationReason = resolvedMedication.reasons.get(0);
 		assertEquals(SNOMED_URI, actualMedicationReason.system);
-		assertEquals("371051005", actualMedicationReason.code);
-		assertEquals("Traumatic thrombosis of axillary vein", actualMedicationReason.display);
+		assertEquals("132111000119107", actualMedicationReason.code);
+		assertEquals("Acute deep venous thrombosis of lower limb due to coronary artery bypass grafting", actualMedicationReason.display);
 
 		Code actualStopReason = resolvedMedication.stopReason;
 		assertEquals(SNOMED_URI, actualStopReason.system);
-		assertEquals("448152000", actualStopReason.code);
-		assertEquals("Medicine dose too low", actualStopReason.display);
+		assertEquals("713017009", actualStopReason.code);
+		assertEquals("Noncompliance with antiretroviral medicine regimen", actualStopReason.display);
 	}
 
 	@Test
@@ -163,13 +163,13 @@ public class ValueSetCodeResolverTest {
 		assertEquals(1, resolvedCarePlan.reasons.size());
 		Code actualCarePlanReason = resolvedCarePlan.reasons.get(0);
 		assertEquals(SNOMED_URI, actualCarePlanReason.system);
-		assertEquals("440867000", actualCarePlanReason.code);
-		assertEquals("Moderate hereditary factor IX deficiency disease with inhibitor", actualCarePlanReason.display);
+		assertEquals("49762007", actualCarePlanReason.code);
+		assertEquals("Hereditary factor XI deficiency disease", actualCarePlanReason.display);
 
 		Code actualStopReason = resolvedCarePlan.stopReason;
 		assertEquals(SNOMED_URI, actualStopReason.system);
-		assertEquals("95456009", actualStopReason.code);
-		assertEquals("Brain stem ischaemia", actualStopReason.display);
+		assertEquals("231800009", actualStopReason.code);
+		assertEquals("Rosacea of skin of eyelid", actualStopReason.display);
 	}
 
 	@Test
@@ -196,8 +196,8 @@ public class ValueSetCodeResolverTest {
 		assertEquals(1, resolvedImagingStudy.series.size());
 		Series series = resolvedImagingStudy.series.get(0);
 		assertEquals(SNOMED_URI, series.bodySite.system);
-		assertEquals("723247004", series.bodySite.code);
-		assertEquals("Structure of medial meniscus of right knee joint", series.bodySite.display);
+		assertEquals("778055004", series.bodySite.code);
+		assertEquals("Bone structure of right knee", series.bodySite.display);
 
 		// Modality and SOP class are not really good candidates for ValueSet-based
 		// selection, so we do
