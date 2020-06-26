@@ -30,6 +30,7 @@ import org.mitre.synthea.world.concepts.HealthRecord.Observation;
 import org.mitre.synthea.world.concepts.HealthRecord.Procedure;
 import org.mitre.synthea.world.concepts.HealthRecord.Report;
 import org.mitre.synthea.world.geography.Location;
+import org.springframework.web.client.RestTemplate;
 
 public class ValueSetCodeResolverTest {
 
@@ -40,6 +41,7 @@ public class ValueSetCodeResolverTest {
 	@Before
 	public void setUp() throws Exception {
 		RandomCodeGenerator.setBaseUrl("https://r4.ontoserver.csiro.au/fhir");
+		RandomCodeGenerator.restTemplate = new RestTemplate();
 
 		person = new Person(12345L);
 		time = new SimpleDateFormat("yyyy-MM-dd").parse("2014-09-25").getTime();
@@ -133,7 +135,8 @@ public class ValueSetCodeResolverTest {
 		Code actualMedicationReason = resolvedMedication.reasons.get(0);
 		assertEquals(SNOMED_URI, actualMedicationReason.system);
 		assertEquals("132111000119107", actualMedicationReason.code);
-		assertEquals("Acute deep venous thrombosis of lower limb due to coronary artery bypass grafting", actualMedicationReason.display);
+		assertEquals("Acute deep venous thrombosis of lower limb due to coronary artery bypass grafting",
+				actualMedicationReason.display);
 
 		Code actualStopReason = resolvedMedication.stopReason;
 		assertEquals(SNOMED_URI, actualStopReason.system);

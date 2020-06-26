@@ -33,15 +33,14 @@ import com.fasterxml.jackson.databind.ObjectMapper;
  * <code>generate.terminology_service_url</code> property.
  */
 public abstract class RandomCodeGenerator {
-	
+
 	public static String expandBaseUrl = Config.get("generate.terminology_service_url") + "/ValueSet/$expand?url=";
 
 	private static final Logger logger = LoggerFactory.getLogger(RandomCodeGenerator.class);
-	private static Map<String, String> isExpandApiInvoked = new HashMap<>();
 	public static Map<String, List<Object>> codeListCache = new HashMap<>();
-	
+
 	public static RestTemplate restTemplate = new RestTemplate();
-	
+
 	/**
 	 * Gets a random code from the expansion of a ValueSet.
 	 *
@@ -67,18 +66,17 @@ public abstract class RandomCodeGenerator {
 			HttpHeaders headers = new HttpHeaders();
 			headers.setContentType(MediaType.APPLICATION_JSON);
 			HttpEntity<String> request = new HttpEntity<>(headers);
-
-			ResponseEntity<String> response = restTemplate.exchange(expandBaseUrl + valueSetUri, HttpMethod.GET, request,
-					String.class);
-			
-			ObjectMapper objectMapper = new ObjectMapper();
 			Map<String, Object> valueSet = null;
 			try {
+				ResponseEntity<String> response = restTemplate.exchange(expandBaseUrl + valueSetUri, HttpMethod.GET,
+						request, String.class);
+				ObjectMapper objectMapper = new ObjectMapper();
 				valueSet = objectMapper.readValue(response.getBody(), new TypeReference<Map<String, Object>>() {
 				});
 			} catch (JsonProcessingException e) {
-				logger.error("JsonProcessingException", e);
 				throw new RuntimeException("JsonProcessingException while parsing valueSet response");
+			} catch (RestClientException e) {
+				throw new RestClientException("RestClientException while fetching valueSet response");
 			}
 
 			Map<String, Object> expansion = (Map<String, Object>) valueSet.get("expansion");
@@ -88,7 +86,7 @@ public abstract class RandomCodeGenerator {
 	}
 
 	private static void validateExpansion(@Nonnull Map<String, Object> expansion) {
-		if(expansion == null) {
+		if (expansion == null) {
 			throw new RuntimeException("ValueSet does not contain expansion");
 		} else if (!expansion.containsKey("contains") || ((Collection) expansion.get("contains")).isEmpty()) {
 			throw new RuntimeException("ValueSet expansion does not contain any codes");
@@ -102,7 +100,7 @@ public abstract class RandomCodeGenerator {
 			throw new RuntimeException("ValueSet contains element does not contain system, code and display");
 		}
 	}
-	
+
 	public static void setBaseUrl(String url) {
 		expandBaseUrl = url + "/ValueSet/$expand?url=";
 	}

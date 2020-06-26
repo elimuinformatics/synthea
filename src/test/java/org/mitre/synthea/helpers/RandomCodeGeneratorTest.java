@@ -7,6 +7,7 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 
 import org.apache.commons.io.IOUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
@@ -23,6 +24,7 @@ import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
 @RunWith(MockitoJUnitRunner.class)
@@ -98,6 +100,31 @@ public class RandomCodeGeneratorTest {
 				ArgumentMatchers.<HttpEntity<?>>any(), ArgumentMatchers.<Class<String>>any()))
 				.thenReturn(new ResponseEntity<String>(getResponseToStub("missingCodeElements.ValueSet.json"),
 						HttpStatus.OK));
+
+		RandomCodeGenerator.getCode(VALUE_SET_URI, SEED);
+	}
+
+	@Test
+	public void throwsWhenInvalidResponse() {
+		thrown.expect(RuntimeException.class);
+		thrown.expectMessage("JsonProcessingException while parsing valueSet response");
+
+		Mockito.when(restTemplate.exchange(ArgumentMatchers.anyString(), ArgumentMatchers.eq(HttpMethod.GET),
+				ArgumentMatchers.<HttpEntity<?>>any(), ArgumentMatchers.<Class<String>>any()))
+				.thenReturn(new ResponseEntity<String>(StringUtils.chop(getResponseToStub("noExpansion.ValueSet.json")),
+						HttpStatus.OK));
+
+		RandomCodeGenerator.getCode(VALUE_SET_URI, SEED);
+	}
+
+	@Test
+	public void throwsWhenRestClientFailed() {
+		thrown.expect(RestClientException.class);
+		thrown.expectMessage("RestClientException while fetching valueSet response");
+
+		Mockito.when(restTemplate.exchange(ArgumentMatchers.anyString(), ArgumentMatchers.eq(HttpMethod.GET),
+				ArgumentMatchers.<HttpEntity<?>>any(), ArgumentMatchers.<Class<String>>any()))
+				.thenThrow(new RestClientException("RestClientException while fetching valueSet response"));
 
 		RandomCodeGenerator.getCode(VALUE_SET_URI, SEED);
 	}
