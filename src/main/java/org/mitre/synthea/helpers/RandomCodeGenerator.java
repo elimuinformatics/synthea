@@ -1,5 +1,6 @@
 package org.mitre.synthea.helpers;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
@@ -38,6 +39,7 @@ public abstract class RandomCodeGenerator {
 
 	private static final Logger logger = LoggerFactory.getLogger(RandomCodeGenerator.class);
 	public static Map<String, List<Object>> codeListCache = new HashMap<>();
+	public static List<Code> selectedCodes = new ArrayList<>();
 
 	public static RestTemplate restTemplate = new RestTemplate();
 
@@ -55,9 +57,11 @@ public abstract class RandomCodeGenerator {
 		expandValueSet(valueSetUri);
 		List<Object> codes = codeListCache.get(valueSetUri);
 		int randomIndex = new Random(seed).nextInt(codes.size());
-		Map<String, String> code = (Map<String, String>) codes.get(randomIndex);
-		validateCode(code);
-		return new Code(code.get("system"), code.get("code"), code.get("display"));
+		Map<String, String> codeMap = (Map<String, String>) codes.get(randomIndex);
+		validateCode(codeMap);
+		Code code = new Code(codeMap.get("system"), codeMap.get("code"), codeMap.get("display"));
+		selectedCodes.add(code);
+		return code;
 	}
 
 	@SuppressWarnings("unchecked")
