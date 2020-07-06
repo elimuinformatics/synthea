@@ -1,0 +1,6 @@
+version: "3.8"
+services:
+  synthea_app:
+    image: synthea-app
+    volumes:
+      - ~/output:/app/synthea/output
