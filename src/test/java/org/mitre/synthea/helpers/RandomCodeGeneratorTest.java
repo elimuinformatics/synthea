@@ -30,130 +30,147 @@ import org.springframework.web.client.RestTemplate;
 @RunWith(MockitoJUnitRunner.class)
 public class RandomCodeGeneratorTest {
 
-	private static final int SEED = 1234;
-	private static final String VALUE_SET_URI = SNOMED_URI + "?fhir_vs=ecl/<<131148009";
-	private static final String PATH = "wiremock/RandomCodeGeneratorTest/__files/";
+  private static final int SEED = 1234;
+  private static final String VALUE_SET_URI = SNOMED_URI + "?fhir_vs=ecl/<<131148009";
+  private static final String PATH = "wiremock/RandomCodeGeneratorTest/__files/";
+  private final Code code = new Code("SNOMED-CT", "38341003", "Hypertension");
 
-	@Rule
-	public ExpectedException thrown = ExpectedException.none();
+  @Rule
+  public ExpectedException thrown = ExpectedException.none();
 
-	@Mock
-	private RestTemplate restTemplate;
+  @Mock
+  private RestTemplate restTemplate;
 
-	@Before
-	public void setup() {
-		RandomCodeGenerator.restTemplate = restTemplate;
-	}
+  @Before
+  public void setup() {
+    RandomCodeGenerator.restTemplate = restTemplate;
+  }
 
-	@Test
-	public void getCode() {
-		Mockito.when(restTemplate.exchange(ArgumentMatchers.anyString(), ArgumentMatchers.eq(HttpMethod.GET),
-				ArgumentMatchers.<HttpEntity<?>>any(), ArgumentMatchers.<Class<String>>any()))
-				.thenReturn(new ResponseEntity<String>(getResponseToStub("codes.json"), HttpStatus.OK));
+  @Test
+  public void getCode() {
+    Mockito
+        .when(restTemplate.exchange(ArgumentMatchers.anyString(), ArgumentMatchers.eq(HttpMethod.GET),
+            ArgumentMatchers.<HttpEntity<?>>any(), ArgumentMatchers.<Class<String>>any()))
+        .thenReturn(new ResponseEntity<String>(getResponseToStub("codes.json"), HttpStatus.OK));
 
-		Code code = RandomCodeGenerator.getCode(VALUE_SET_URI, SEED);
+    Code code = RandomCodeGenerator.getCode(VALUE_SET_URI, SEED, this.code);
 
-		Assert.assertEquals(SNOMED_URI, code.system);
-		Assert.assertEquals("312858004", code.code);
-		Assert.assertEquals("Neonatal tracheobronchial haemorrhage", code.display);
-	}
+    Assert.assertEquals(SNOMED_URI, code.system);
+    Assert.assertEquals("312858004", code.code);
+    Assert.assertEquals("Neonatal tracheobronchial haemorrhage", code.display);
+  }
 
-	@Test
-	public void throwsWhenNoExpansion() {
-		thrown.expect(RuntimeException.class);
-		thrown.expectMessage("ValueSet does not contain expansion");
-		Mockito.when(restTemplate.exchange(ArgumentMatchers.anyString(), ArgumentMatchers.eq(HttpMethod.GET),
-				ArgumentMatchers.<HttpEntity<?>>any(), ArgumentMatchers.<Class<String>>any()))
-				.thenReturn(new ResponseEntity<String>(getResponseToStub("noExpansion.ValueSet.json"), HttpStatus.OK));
+  @Test
+  public void throwsWhenNoExpansion() {
+    thrown.expect(RuntimeException.class);
+    thrown.expectMessage("ValueSet does not contain expansion");
+    Mockito
+        .when(restTemplate.exchange(ArgumentMatchers.anyString(), ArgumentMatchers.eq(HttpMethod.GET),
+            ArgumentMatchers.<HttpEntity<?>>any(), ArgumentMatchers.<Class<String>>any()))
+        .thenReturn(new ResponseEntity<String>(getResponseToStub("noExpansion.ValueSet.json"), HttpStatus.OK));
 
-		RandomCodeGenerator.getCode(VALUE_SET_URI, SEED);
-	}
+    RandomCodeGenerator.getCode(VALUE_SET_URI, SEED, this.code);
+  }
 
-	@Test
-	public void throwsWhenNoTotal() {
-		thrown.expect(RuntimeException.class);
-		thrown.expectMessage("No total element in ValueSet expand result");
-		Mockito.when(restTemplate.exchange(ArgumentMatchers.anyString(), ArgumentMatchers.eq(HttpMethod.GET),
-				ArgumentMatchers.<HttpEntity<?>>any(), ArgumentMatchers.<Class<String>>any()))
-				.thenReturn(new ResponseEntity<String>(getResponseToStub("noTotal.ValueSet.json"), HttpStatus.OK));
+  @Test
+  public void throwsWhenNoTotal() {
+    thrown.expect(RuntimeException.class);
+    thrown.expectMessage("No total element in ValueSet expand result");
+    Mockito
+        .when(restTemplate.exchange(ArgumentMatchers.anyString(), ArgumentMatchers.eq(HttpMethod.GET),
+            ArgumentMatchers.<HttpEntity<?>>any(), ArgumentMatchers.<Class<String>>any()))
+        .thenReturn(new ResponseEntity<String>(getResponseToStub("noTotal.ValueSet.json"), HttpStatus.OK));
 
-		RandomCodeGenerator.getCode(VALUE_SET_URI, SEED);
-	}
+    RandomCodeGenerator.getCode(VALUE_SET_URI, SEED, this.code);
+  }
 
-	@Test
-	public void throwsWhenNoContains() {
-		thrown.expect(RuntimeException.class);
-		thrown.expectMessage("ValueSet expansion does not contain any codes");
-		Mockito.when(restTemplate.exchange(ArgumentMatchers.anyString(), ArgumentMatchers.eq(HttpMethod.GET),
-				ArgumentMatchers.<HttpEntity<?>>any(), ArgumentMatchers.<Class<String>>any()))
-				.thenReturn(new ResponseEntity<String>(getResponseToStub("noContains.ValueSet.json"), HttpStatus.OK));
+  @Test
+  public void throwsWhenNoContains() {
+    thrown.expect(RuntimeException.class);
+    thrown.expectMessage("ValueSet expansion does not contain any codes");
+    Mockito
+        .when(restTemplate.exchange(ArgumentMatchers.anyString(), ArgumentMatchers.eq(HttpMethod.GET),
+            ArgumentMatchers.<HttpEntity<?>>any(), ArgumentMatchers.<Class<String>>any()))
+        .thenReturn(new ResponseEntity<String>(getResponseToStub("noContains.ValueSet.json"), HttpStatus.OK));
 
-		RandomCodeGenerator.getCode(VALUE_SET_URI, SEED);
-	}
+    RandomCodeGenerator.getCode(VALUE_SET_URI, SEED, this.code);
+  }
 
-	@Test
-	public void throwsWhenMissingCodeElements() {
-		thrown.expect(RuntimeException.class);
-		thrown.expectMessage("ValueSet contains element does not contain system, code and display");
+  @Test
+  public void throwsWhenMissingCodeElements() {
+    thrown.expect(RuntimeException.class);
+    thrown.expectMessage("ValueSet contains element does not contain system, code and display");
 
-		Mockito.when(restTemplate.exchange(ArgumentMatchers.anyString(), ArgumentMatchers.eq(HttpMethod.GET),
-				ArgumentMatchers.<HttpEntity<?>>any(), ArgumentMatchers.<Class<String>>any()))
-				.thenReturn(new ResponseEntity<String>(getResponseToStub("missingCodeElements.ValueSet.json"),
-						HttpStatus.OK));
+    Mockito
+        .when(restTemplate.exchange(ArgumentMatchers.anyString(), ArgumentMatchers.eq(HttpMethod.GET),
+            ArgumentMatchers.<HttpEntity<?>>any(), ArgumentMatchers.<Class<String>>any()))
+        .thenReturn(new ResponseEntity<String>(getResponseToStub("missingCodeElements.ValueSet.json"), HttpStatus.OK));
 
-		RandomCodeGenerator.getCode(VALUE_SET_URI, SEED);
-	}
+    RandomCodeGenerator.getCode(VALUE_SET_URI, SEED, this.code);
+  }
 
-	@Test
-	public void throwsWhenInvalidResponse() {
-		thrown.expect(RuntimeException.class);
-		thrown.expectMessage("JsonProcessingException while parsing valueSet response");
+  @Test
+  public void throwsWhenInvalidResponse() {
+    thrown.expect(RuntimeException.class);
+    thrown.expectMessage("JsonProcessingException while parsing valueSet response");
 
-		Mockito.when(restTemplate.exchange(ArgumentMatchers.anyString(), ArgumentMatchers.eq(HttpMethod.GET),
-				ArgumentMatchers.<HttpEntity<?>>any(), ArgumentMatchers.<Class<String>>any()))
-				.thenReturn(new ResponseEntity<String>(StringUtils.chop(getResponseToStub("noExpansion.ValueSet.json")),
-						HttpStatus.OK));
+    Mockito
+        .when(restTemplate.exchange(ArgumentMatchers.anyString(), ArgumentMatchers.eq(HttpMethod.GET),
+            ArgumentMatchers.<HttpEntity<?>>any(), ArgumentMatchers.<Class<String>>any()))
+        .thenReturn(new ResponseEntity<String>(StringUtils.chop(getResponseToStub("noExpansion.ValueSet.json")),
+            HttpStatus.OK));
 
-		RandomCodeGenerator.getCode(VALUE_SET_URI, SEED);
-	}
+    RandomCodeGenerator.getCode(VALUE_SET_URI, SEED, this.code);
+  }
 
-	@Test
-	public void throwsWhenRestClientFailed() {
-		thrown.expect(RestClientException.class);
-		thrown.expectMessage("RestClientException while fetching valueSet response");
+  @Test
+  public void throwsWhenRestClientFailed() {
+    thrown.expect(RestClientException.class);
+    thrown.expectMessage("RestClientException while fetching valueSet response");
 
-		Mockito.when(restTemplate.exchange(ArgumentMatchers.anyString(), ArgumentMatchers.eq(HttpMethod.GET),
-				ArgumentMatchers.<HttpEntity<?>>any(), ArgumentMatchers.<Class<String>>any()))
-				.thenThrow(new RestClientException("RestClientException while fetching valueSet response"));
+    Mockito
+        .when(restTemplate.exchange(ArgumentMatchers.anyString(), ArgumentMatchers.eq(HttpMethod.GET),
+            ArgumentMatchers.<HttpEntity<?>>any(), ArgumentMatchers.<Class<String>>any()))
+        .thenThrow(new RestClientException("RestClientException while fetching valueSet response"));
 
-		RandomCodeGenerator.getCode(VALUE_SET_URI, SEED);
-	}
+    RandomCodeGenerator.getCode(VALUE_SET_URI, SEED, this.code);
+  }
 
-	@Test
-	public void filterCodesTest() {
-		Mockito.when(restTemplate.exchange(ArgumentMatchers.anyString(), ArgumentMatchers.eq(HttpMethod.GET),
-				ArgumentMatchers.<HttpEntity<?>>any(), ArgumentMatchers.<Class<String>>any()))
-				.thenReturn(new ResponseEntity<String>(getResponseToStub("codes.json"), HttpStatus.OK));
+  @Test
+  public void filterCodesTest() {
+    Mockito
+        .when(restTemplate.exchange(ArgumentMatchers.anyString(), ArgumentMatchers.eq(HttpMethod.GET),
+            ArgumentMatchers.<HttpEntity<?>>any(), ArgumentMatchers.<Class<String>>any()))
+        .thenReturn(new ResponseEntity<String>(getResponseToStub("codes.json"), HttpStatus.OK));
 
-		Code code = RandomCodeGenerator.getCode(VALUE_SET_URI + "&filter=tracheobronchial", SEED);
+    Code code = RandomCodeGenerator.getCode(VALUE_SET_URI + "&filter=tracheobronchial", SEED, this.code);
 
-		Assert.assertTrue("Verify filter", code.display.contains("tracheobronchial"));
-	}
+    Assert.assertTrue("Verify filter", code.display.contains("tracheobronchial"));
+  }
 
-	@After
-	public void cleanup() {
-		RandomCodeGenerator.codeListCache.clear();
-		RandomCodeGenerator.restTemplate = null;
-	}
+  @Test
+  public void invalidValueSetUrlTest() {
+    Code code = RandomCodeGenerator.getCode("", SEED, this.code);
 
-	public String getResponseToStub(String body) {
-		ClassLoader classLoader = getClass().getClassLoader();
-		try (InputStream inputStream = classLoader.getResourceAsStream(PATH.concat(body))) {
-			return IOUtils.toString(inputStream, StandardCharsets.UTF_8);
-		} catch (IOException e) {
-			e.printStackTrace();
-		}
-		return null;
-	}
+    Assert.assertEquals("SNOMED-CT", code.system);
+    Assert.assertEquals("38341003", code.code);
+    Assert.assertEquals("Hypertension", code.display);
+  }
+
+  @After
+  public void cleanup() {
+    RandomCodeGenerator.codeListCache.clear();
+    RandomCodeGenerator.restTemplate = null;
+  }
+
+  public String getResponseToStub(String body) {
+    ClassLoader classLoader = getClass().getClassLoader();
+    try (InputStream inputStream = classLoader.getResourceAsStream(PATH.concat(body))) {
+      return IOUtils.toString(inputStream, StandardCharsets.UTF_8);
+    } catch (IOException e) {
+      e.printStackTrace();
+    }
+    return null;
+  }
 
 }

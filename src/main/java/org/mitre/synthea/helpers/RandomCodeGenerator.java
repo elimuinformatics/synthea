@@ -6,6 +6,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import javax.annotation.Nonnull;
 
@@ -35,77 +37,91 @@ import com.fasterxml.jackson.databind.ObjectMapper;
  */
 public abstract class RandomCodeGenerator {
 
-	public static String expandBaseUrl = Config.get("generate.terminology_service_url") + "/ValueSet/$expand?url=";
+  private static final String URL_REGEX = "^((((https?|ftps?|gopher|telnet|nntp)://))"
+      + "(%[0-9A-Fa-f]{2}|[-()_.!~*';/?:@<<&=+$,A-Za-z0-9])+)" + "([).!';/?:,][[:blank:]])?$";
+  private static final Pattern URL_PATTERN = Pattern.compile(URL_REGEX);
+  public static String expandBaseUrl = Config.get("generate.terminology_service_url") + "/ValueSet/$expand?url=";
 
-	private static final Logger logger = LoggerFactory.getLogger(RandomCodeGenerator.class);
-	public static Map<String, List<Object>> codeListCache = new HashMap<>();
-	public static List<Code> selectedCodes = new ArrayList<>();
+  private static final Logger logger = LoggerFactory.getLogger(RandomCodeGenerator.class);
+  public static Map<String, List<Object>> codeListCache = new HashMap<>();
+  public static List<Code> selectedCodes = new ArrayList<>();
 
-	public static RestTemplate restTemplate = new RestTemplate();
+  public static RestTemplate restTemplate = new RestTemplate();
 
-	/**
-	 * Gets a random code from the expansion of a ValueSet.
-	 *
-	 * @param valueSetUri
-	 *            the URI of the ValueSet
-	 * @param seed
-	 *            a random seed to ensure reproducibility of this result
-	 * @return the randomly selected Code
-	 */
-	@SuppressWarnings({ "unchecked", "static-access" })
-	public static Code getCode(String valueSetUri, long seed) {
-		expandValueSet(valueSetUri);
-		List<Object> codes = codeListCache.get(valueSetUri);
-		int randomIndex = new Random(seed).nextInt(codes.size());
-		Map<String, String> codeMap = (Map<String, String>) codes.get(randomIndex);
-		validateCode(codeMap);
-		Code code = new Code(codeMap.get("system"), codeMap.get("code"), codeMap.get("display"));
-		selectedCodes.add(code);
-		return code;
-	}
+  /**
+   * Gets a random code from the expansion of a ValueSet.
+   *
+   * @param valueSetUri
+   *          the URI of the ValueSet
+   * @param seed
+   *          a random seed to ensure reproducibility of this result
+   * @return the randomly selected Code
+   */
+  @SuppressWarnings("unchecked")
+  public static Code getCode(String valueSetUri, long seed, Code code) {
+    if (urlValidator(valueSetUri)) {
+      expandValueSet(valueSetUri);
+      List<Object> codes = codeListCache.get(valueSetUri);
+      int randomIndex = new Random(seed).nextInt(codes.size());
+      Map<String, String> codeMap = (Map<String, String>) codes.get(randomIndex);
+      validateCode(codeMap);
+      Code newCode = new Code(codeMap.get("system"), codeMap.get("code"), codeMap.get("display"));
+      selectedCodes.add(newCode);
+      return newCode;
+    }
+    return code;
+  }
 
-	@SuppressWarnings("unchecked")
-	private static synchronized void expandValueSet(String valueSetUri) {
-		if (!codeListCache.containsKey(valueSetUri)) {
-			HttpHeaders headers = new HttpHeaders();
-			headers.setContentType(MediaType.APPLICATION_JSON);
-			HttpEntity<String> request = new HttpEntity<>(headers);
-			Map<String, Object> valueSet = null;
-			try {
-				ResponseEntity<String> response = restTemplate.exchange(expandBaseUrl + valueSetUri, HttpMethod.GET,
-						request, String.class);
-				ObjectMapper objectMapper = new ObjectMapper();
-				valueSet = objectMapper.readValue(response.getBody(), new TypeReference<Map<String, Object>>() {
-				});
-			} catch (JsonProcessingException e) {
-				throw new RuntimeException("JsonProcessingException while parsing valueSet response");
-			} catch (RestClientException e) {
-				throw new RestClientException("RestClientException while fetching valueSet response");
-			}
+  private static boolean urlValidator(String url) {
+    if (StringUtils.isEmpty(url)) {
+      return false;
+    }
+    Matcher matcher = URL_PATTERN.matcher(url);
+    return matcher.matches();
+  }
 
-			Map<String, Object> expansion = (Map<String, Object>) valueSet.get("expansion");
-			validateExpansion(expansion);
-			codeListCache.put(valueSetUri, (List<Object>) expansion.get("contains"));
-		}
-	}
+  @SuppressWarnings("unchecked")
+  private static synchronized void expandValueSet(String valueSetUri) {
+    if (!codeListCache.containsKey(valueSetUri)) {
+      HttpHeaders headers = new HttpHeaders();
+      headers.setContentType(MediaType.APPLICATION_JSON);
+      HttpEntity<String> request = new HttpEntity<>(headers);
+      Map<String, Object> valueSet = null;
+      try {
+        ResponseEntity<String> response = restTemplate.exchange(expandBaseUrl + valueSetUri, HttpMethod.GET, request,
+            String.class);
+        ObjectMapper objectMapper = new ObjectMapper();
+        valueSet = objectMapper.readValue(response.getBody(), new TypeReference<Map<String, Object>>() {
+        });
+      } catch (JsonProcessingException e) {
+        throw new RuntimeException("JsonProcessingException while parsing valueSet response");
+      } catch (RestClientException e) {
+        throw new RestClientException("RestClientException while fetching valueSet response");
+      }
 
-	private static void validateExpansion(@Nonnull Map<String, Object> expansion) {
-		if (expansion == null) {
-			throw new RuntimeException("ValueSet does not contain expansion");
-		} else if (!expansion.containsKey("contains") || ((Collection) expansion.get("contains")).isEmpty()) {
-			throw new RuntimeException("ValueSet expansion does not contain any codes");
-		} else if (!expansion.containsKey("total")) {
-			throw new RuntimeException("No total element in ValueSet expand result");
-		}
-	}
+      Map<String, Object> expansion = (Map<String, Object>) valueSet.get("expansion");
+      validateExpansion(expansion);
+      codeListCache.put(valueSetUri, (List<Object>) expansion.get("contains"));
+    }
+  }
 
-	private static void validateCode(Map<String, String> code) {
-		if (StringUtils.isAnyEmpty(code.get("system"), code.get("code"), code.get("display"))) {
-			throw new RuntimeException("ValueSet contains element does not contain system, code and display");
-		}
-	}
+  private static void validateExpansion(@Nonnull Map<String, Object> expansion) {
+    if (expansion == null) {
+      throw new RuntimeException("ValueSet does not contain expansion");
+    } else if (!expansion.containsKey("contains") || ((Collection) expansion.get("contains")).isEmpty()) {
+      throw new RuntimeException("ValueSet expansion does not contain any codes");
+    } else if (!expansion.containsKey("total")) {
+      throw new RuntimeException("No total element in ValueSet expand result");
+    }
+  }
 
-	public static void setBaseUrl(String url) {
-		expandBaseUrl = url + "/ValueSet/$expand?url=";
-	}
+  private static void validateCode(Map<String, String> code) {
+    if (StringUtils.isAnyEmpty(code.get("system"), code.get("code"), code.get("display"))) {
+      throw new RuntimeException("ValueSet contains element does not contain system, code and display");
+    }
+  }
+
+  public static void setBaseUrl(String url) {
+    expandBaseUrl = url + "/ValueSet/$expand?url=";
+  }
 }

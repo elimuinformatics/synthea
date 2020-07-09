@@ -85,6 +85,17 @@ Generate a list of concepts (used in the records) or attributes (variables on ea
 ./gradlew attributes
 ```
 
+## Build and Run synthetic patient generator using docker
+
+# Building a docker
+  docker build -t synthea-app .
+
+# Run a docker 
+  docker-compose run --rm synthea_app 
+
+# Run a docker with parameters
+  docker-compose run --rm synthea_app ./run_synthea -m _bob* -p 10
+
 # License
 
 Copyright 2017-2020 The MITRE Corporation
@@ -100,3 +111,4 @@ distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
+

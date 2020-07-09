@@ -385,15 +385,16 @@ public class CSVExporter {
       String payerID = encounter.claim.payer.uuid;
 
       for (HealthRecord.Entry condition : encounter.conditions) {
-    	  /*condition to ignore codes other then retrieved from terminology url*/
-    	  if (!StringUtils.isEmpty(Config.get("generate.terminology_service_url"))) {
-    		  if (RandomCodeGenerator.selectedCodes.stream()
-    				  .filter(code -> code.code.equals(condition.codes.get(0).code)).findFirst().isPresent()) {
-    			  condition(personID, encounterID, condition);
-    		  }
-    	  } else {
-    		  condition(personID, encounterID, condition);
-    	  }
+        /* condition to ignore codes other then retrieved from terminology url */
+        if (!StringUtils.isEmpty(Config.get("generate.terminology_service_url"))
+            && !RandomCodeGenerator.selectedCodes.isEmpty()) {
+          if (RandomCodeGenerator.selectedCodes.stream().filter(code -> code.code.equals(condition.codes.get(0).code))
+              .findFirst().isPresent()) {
+            condition(personID, encounterID, condition);
+          }
+        } else {
+          condition(personID, encounterID, condition);
+        }
       }
 
       for (HealthRecord.Entry allergy : encounter.allergies) {
