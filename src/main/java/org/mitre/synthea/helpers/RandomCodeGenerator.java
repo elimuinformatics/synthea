@@ -31,8 +31,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
  * Generates random codes based upon ValueSet URIs, with the help of a FHIR terminology service
  * API.
  *
- * <p>
- * The URL for the terminology service is configured using the
+ * <p>The URL for the terminology service is configured using the
  * <code>generate.terminology_service_url</code> property.
  */
 public abstract class RandomCodeGenerator {
